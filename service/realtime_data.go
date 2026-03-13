@@ -191,14 +191,15 @@ func ProcessJWClassInfo(ctx context.Context, jwClassInfo []model.JWClassInfo, cl
 				classroom = re.ReplaceAllString(classroom, replaceConfig.Replace)
 			}
 			classroomInfo := model.ClassroomInfo{}
-			if len(strings.Split(strings.Split(classroom, "(")[0], "-")) != 2 {
-				logs.CtxWarn(ctx, "classroom format error: %v", classroom)
-				continue
+			namePart, sizePart, found1 := strings.Cut(classroom, "(") // 分离教室名称和容量
+			buildingName, roomName, found2 := strings.Cut(namePart, "-") // 分离教学楼和教室名称
+			if !found1 || !found2 {
+			        logs.CtxWarn(ctx, "classroom format error: %v", classroom)
+			        continue
 			}
-			classroomInfo.Name = strings.Split(strings.Split(classroom, "(")[0], "-")[1]
-			classroomInfo.Size, _ = strconv.ParseInt(strings.Split(strings.Split(classroom, "(")[1], ")")[0], 10, 32)
-			classroomInfo.CanTrust = true
-			buildingName := strings.Split(classroom, "-")[0]
+			classroomInfo.Name = roomName // 教室名称
+			classroomInfo.Size, _ = strconv.ParseInt(strings.TrimSuffix(sizePart, ")"), 10, 32) // 教室容量
+			classroomInfo.CanTrust = true // 可信
 			if _, ok := campusInfo.BuildingIdMap[buildingName]; !ok {
 				campusInfo.BuildingIdMap[buildingName] = campusInfo.MaxBuildingId
 				campusInfo.BuildingInfoMap[campusInfo.MaxBuildingId] = &model.BuildingInfo{
@@ -281,7 +282,7 @@ func ProcessClassTableInfo(ctx context.Context, classInfo *model.ClassInfo, camp
 		campusInfo = *classInfo.CampusInfoMap[campusName]
 	}
 	for _, classItemInfo := range campusClassTableConfig.Class {
-		buildingName := strings.Split(classItemInfo.Name, "-")[0]
+		buildingName, classroomName, _ := strings.Cut(classItemInfo.Name, "-") // 分离教学楼和教室名称
 		if _, ok := campusInfo.BuildingIdMap[buildingName]; !ok {
 			campusInfo.BuildingIdMap[buildingName] = campusInfo.MaxBuildingId
 			campusInfo.BuildingInfoMap[campusInfo.MaxBuildingId] = &model.BuildingInfo{
@@ -297,7 +298,6 @@ func ProcessClassTableInfo(ctx context.Context, classInfo *model.ClassInfo, camp
 			campusInfo.MaxBuildingId++
 		}
 		buildingId := campusInfo.BuildingIdMap[buildingName]
-		classroomName := strings.Split(classItemInfo.Name, "-")[1]
 		if _, ok := campusInfo.BuildingInfoMap[buildingId].ClassroomIdMap[classroomName]; !ok {
 			campusInfo.BuildingInfoMap[buildingId].ClassroomIdMap[classroomName] = campusInfo.BuildingInfoMap[buildingId].MaxClassroomId
 			campusInfo.BuildingInfoMap[buildingId].ClassroomInfoMap[campusInfo.BuildingInfoMap[buildingId].MaxClassroomId] = &model.ClassroomInfo{
